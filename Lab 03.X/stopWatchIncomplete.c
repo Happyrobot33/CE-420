@@ -39,27 +39,29 @@ main()
         //switch on the current state of the statemachine
         switch(state)
         {
-            case 0:
-                if (PORTFbits.RF0 == 0) //check BTNC (Button Center)
+            case 0b00:
+                if (PORTFbits.RF0 == 1) //check BTNC (Button Center)
                 {
                     //Reset timer, init freqDiv
                     timer = 0;
                     freqDiv = freqDivMax;
                 }
                 
-                if (PORTBbits.RB8 == 0) //check BTNR (Button Right)
+                if (PORTBbits.RB8 == 1) //check BTNR (Button Right)
                 {
-                    state = 1;
+                    state = 0b01;
                 }
-            case 1:
+                break;
+            case 0b01:
                 if (PORTBbits.RB8 == 0) //check BTNR (Button Right)
                 {
-                    state = 2;
+                    state = 0b10;
                 }
-            case 2:
-                if (PORTBbits.RB8 == 0) //check BTNR (Button Right)
+                break;
+            case 0b10:
+                if (PORTBbits.RB8 == 1) //check BTNR (Button Right)
                 {
-                    state = 3;
+                    state = 0b11;
                 }
                 else
                 {
@@ -73,11 +75,13 @@ main()
                         timer++;
                     }
                 }
-            case 3:
+                break;
+            case 0b11:
                 if (PORTBbits.RB8 == 0) //check BTNR (Button Right)
                 {
-                    state = 0;
+                    state = 0b00;
                 }
+                break;
         }// Switch
     }//While
 }// main
