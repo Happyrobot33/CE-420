@@ -1,7 +1,4 @@
-// Microcomputer Systems lab04 Summer 2024
-// Eight students and 4 textbooks
-// Shows the numbers of the requesting students with the highest priorities
-// among all the requesting students.
+// Microcomputer Systems lab05 Summer 2024
 #include "7SegForLab04.h"          // Bit banging is done here
 #include <plib.h>           // Peripherial library 
 
