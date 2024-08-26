@@ -73,19 +73,107 @@ char buffer[] = {
     16, 16, 16, 16
 }; // end of buffer
 
+//get the length of the buffer with some sizeof magic
+int bufferLength()
+{
+    return sizeof(buffer) / sizeof(buffer[0]);
+}
+
 int buttonIsActive = 0;
 
+//shifts a value into the buffer array, dropping the left most element in the array
 void shiftIn(int value)
 {
-    int i = 4;
+    int i;
     //shift all values over by one
-    for(i = 4; i > 0; i--)
+    for(i = 0; i < bufferLength() - 1; i++) //- 1 is to avoid the last element
     {
-        buffer[i] = buffer[i - 1];
+        buffer[i] = buffer[i + 1];
     }
     
     //put in the new value
-    buffer[0] = value;
+    buffer[bufferLength() - 1] = value;
+}
+
+// Selects a col in the numpad
+void selectCollumn(int col)
+{
+    PORTCbits.RC2 = col != 4; // 4
+    PORTCbits.RC1 = col != 3; // 3
+    PORTCbits.RC4 = col != 2; // 2
+    PORTGbits.RG6 = col != 1; // 1
+}
+
+//will shift in the appropriate row value if that button is pressed and we havent registered any other button presses
+void rowLogic(int row1, int row2, int row3, int row4)
+{
+    if (buttonIsActive == 1)
+    {
+        return;
+    }
+    
+    if (PORTGbits.RG9 == 0) //0 means the button is pushed
+    {
+        shiftIn(row1);
+        buttonIsActive = 1;
+    }
+    else if (PORTGbits.RG8 == 0) //0 means the button is pushed
+    {
+        shiftIn(row2);
+        buttonIsActive = 1;
+    }
+    else if (PORTGbits.RG7 == 0) //0 means the button is pushed
+    {
+        shiftIn(row3);
+        buttonIsActive = 1;
+    }
+    else if (PORTCbits.RC3 == 0) //0 means the button is pushed
+    {
+        shiftIn(row4);
+        buttonIsActive = 1;
+    }
+}
+
+//checks if all of the buttons on the number pad are released, and if so resets buttonIsActive
+void checkAllButtonsReleased()
+{
+    char activeCols[] = {0,0,0,0};
+    //setup collumn 4
+    selectCollumn(4);
+    
+    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
+    {
+        activeCols[3] = 1;
+    }
+    
+    //setup collumn 3
+    selectCollumn(3);
+    
+    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
+    {
+        activeCols[2] = 1;
+    }
+    
+    //setup collumn 2
+    selectCollumn(2);
+    
+    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
+    {
+        activeCols[1] = 1;
+    }
+    
+    //setup collumn 1
+    selectCollumn(1);
+    
+    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
+    {
+        activeCols[0] = 1;
+    }
+    
+    if (activeCols[0] == 0 && activeCols[1] == 0 && activeCols[2] == 0 && activeCols[3] == 0)
+    {
+        buttonIsActive = 0;
+    }
 }
 
 /////////////////////////////// ISR ///////////////////////////  
@@ -100,184 +188,36 @@ void __ISR_SINGLE() T3ISR(void) {
 
     IFS0bits.T3IF = 0; // Reset Interrupt Flag Status bit.
     
-    int j = 0;
-    
     //setup 4 collumn
-    TRISCbits.TRISC2 = 0;
-    PORTCbits.RC2 = 0;
-    
-    if (PORTGbits.RG9 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0xA);
-        buttonIsActive = 1;
-    }
-    else if (PORTGbits.RG8 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0xB);
-        buttonIsActive = 1;
-    }
-    else if (PORTGbits.RG7 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0xC);
-        buttonIsActive = 1;
-    }
-    else if (PORTCbits.RC3 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0xD);
-        buttonIsActive = 1;
-    }
-    
-    //reset
-    TRISCbits.TRISC2 = 1;
-    
-    //for (j = 0; j < 40; j++); // wait
+    selectCollumn(4);
+    rowLogic(0xA,
+             0xB,
+             0xC,
+             0xD);
     
     //setup 3 collumn
-    TRISCbits.TRISC1 = 0;
-    PORTCbits.RC1 = 0;
-    
-    if (PORTGbits.RG9 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0x3);
-        buttonIsActive = 1;
-    }
-    else if (PORTGbits.RG8 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0x6);
-        buttonIsActive = 1;
-    }
-    else if (PORTGbits.RG7 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0x9);
-        buttonIsActive = 1;
-    }
-    else if (PORTCbits.RC3 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0xE);
-        buttonIsActive = 1;
-    }
-
-    //reset
-    TRISCbits.TRISC1 = 1;
-    
-    //for (j = 0; j < 40; j++); // wait
+    selectCollumn(3);
+    rowLogic(0x3,
+             0x6,
+             0x9,
+             0xE);
     
     //setup 2 collumn
-    TRISCbits.TRISC4 = 0;
-    PORTCbits.RC4 = 0;
-    
-    if (PORTGbits.RG9 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0x2);
-        buttonIsActive = 1;
-    }
-    else if (PORTGbits.RG8 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0x5);
-        buttonIsActive = 1;
-    }
-    else if (PORTGbits.RG7 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0x8);
-        buttonIsActive = 1;
-    }
-    else if (PORTCbits.RC3 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0xF);
-        buttonIsActive = 1;
-    }
-    
-    
-    //reset
-    TRISCbits.TRISC4 = 1;
-    
-    //for (j = 0; j < 40; j++); // wait
+    selectCollumn(2);
+    rowLogic(0x2,
+             0x5,
+             0x8,
+             0xF);
     
     //setup 1 collumn
-    TRISGbits.TRISG6 = 0;
-    PORTGbits.RG6 = 0;
-    
-    if (PORTGbits.RG9 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0x1);
-        buttonIsActive = 1;
-    }
-    else if (PORTGbits.RG8 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0x4);
-        buttonIsActive = 1;
-    }
-    else if (PORTGbits.RG7 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0x7);
-        buttonIsActive = 1;
-    }
-    else if (PORTCbits.RC3 == 0 && buttonIsActive == 0) //0 means the button is pushed
-    {
-        shiftIn(0x0);
-        buttonIsActive = 1;
-    }
-    
-    //reset
-    TRISGbits.TRISG6 = 1;
-    
-    //for (j = 0; j < 40; j++); // wait
-    
-    char activeCols[] = {0,0,0,0};
+    selectCollumn(1);
+    rowLogic(0x1,
+             0x4,
+             0x7,
+             0x0);
     
     //check if all buttons are released
-    //setup collumn 4
-    TRISCbits.TRISC2 = 0;
-    PORTCbits.RC2 = 0;
-    
-    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
-    {
-        activeCols[3] = 0b1;
-    }
-    
-    //reset
-    TRISCbits.TRISC2 = 1;
-    
-    //setup collumn 3
-    TRISCbits.TRISC1 = 0;
-    PORTCbits.RC1 = 0;
-    
-    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
-    {
-        activeCols[2] = 1;
-    }
-    
-    //reset
-    TRISCbits.TRISC1 = 1;
-    
-    //setup collumn 2
-    TRISCbits.TRISC4 = 0;
-    PORTCbits.RC4 = 0;
-    
-    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
-    {
-        activeCols[1] = 1;
-    }
-    
-    //reset
-    TRISCbits.TRISC4 = 1;
-    
-    //setup collumn 1
-    TRISGbits.TRISG6 = 0;
-    PORTGbits.RG6 = 0;
-    
-    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
-    {
-        activeCols[0] = 0b1;
-    }
-    
-    //reset
-    TRISGbits.TRISG6 = 1;
-    
-    if (activeCols[0] == 0 && activeCols[1] == 0 && activeCols[2] == 0 && activeCols[3] == 0)
-    {
-        buttonIsActive = 0;
-    }
+    checkAllButtonsReleased();
 } // ISR ends here.
 
 void main(void) {
@@ -294,6 +234,12 @@ void main(void) {
     ANSELF = 0; // PORTF all digital 
     ANSELG = 0;
     //ANSELC = 0;
+    
+    //collumn outputs
+    TRISCbits.TRISC2 = 0;
+    TRISCbits.TRISC1 = 0;
+    TRISCbits.TRISC4 = 0;
+    TRISGbits.TRISG6 = 0;
 
     // The eight pins driving the 7-segment bus are configured as output:
     TRISGbits.TRISG12 = 0;
