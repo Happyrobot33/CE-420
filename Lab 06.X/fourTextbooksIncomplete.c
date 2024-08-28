@@ -66,8 +66,19 @@ void turnOnSeg(int n) {
     } // Switch           
 } // turnOnSeg
 
-char buffer[] = {
-    16, 16, 16, 16
+typedef enum {
+            INPUT,
+            COUNTDOWN,
+                    FINISHED
+} State;
+
+State currentState = INPUT;
+
+long timerStartTimeTicks;
+long timerTicksRemaining = 1 * 5 * 1000; //6 minutes to seconds to ms
+
+int buffer[] = {
+    0, 0, 0, 0
 }; // end of buffer
 
 //get the length of the buffer with some sizeof magic
@@ -81,6 +92,37 @@ int buttonIsActive = 0;
 //shifts a value into the buffer array, dropping the left most element in the array
 void shiftIn(int value)
 {
+    //detect control values that arent 0-9
+    switch (value) {
+        case 0xA: {
+            //we need to convert the buffer over to a single integer value
+            int totalValue = buffer[3];
+            totalValue += buffer[2] * 10;
+            totalValue += buffer[1] * 100;
+            totalValue += buffer[0] * 1000;
+            currentState = COUNTDOWN;
+            timerTicksRemaining = totalValue * 1000;
+            timerStartTimeTicks = timerTicksRemaining;
+            return;
+        }
+        case 0xB: {
+            currentState = INPUT;
+            return;
+        }
+        case 0xC:{
+            currentState = INPUT;
+            buffer[3] = 0;
+            buffer[2] = 0;
+            buffer[1] = 0;
+            buffer[0] = 0;
+            return;
+        }
+        case 0xD:
+        case 0xE:
+        case 0xF:
+            return;
+    }
+    
     int i;
     //shift all values over by one
     for(i = 0; i < bufferLength() - 1; i++) //- 1 is to avoid the last element
@@ -174,10 +216,17 @@ void checkAllButtonsReleased()
 }
 
 /////////////////////////////// ISR ///////////////////////////  
-// Single-vector Interrupt: There is only one interrupt source in this project: Timer3.
 void __ISR_SINGLE() T3ISR(void) {
+    if(currentState == COUNTDOWN || currentState == FINISHED)
+    {
+        timerTicksRemaining -= 1;
+        if (timerTicksRemaining < -1000)
+        {
+            timerTicksRemaining = 0;
+        }
+    }
     ///////// Monitor the ISR by toggling LED0 ///////// 
-    LATAINV = 1; // Flip LED0
+    //LATAINV = 1; // Flip LED0
     //////////////////////////////////////////////////// 
 
     IFS0bits.T3IF = 0; // Reset Interrupt Flag Status bit.
@@ -217,10 +266,13 @@ void __ISR_SINGLE() T3ISR(void) {
 void main(void) {
     //////////// Monitor the ISR by toggling LED0 ///////////////
     TRISAbits.TRISA0 = 0; // Configure LS pin of Port A as output.
-    LATA = 1; // Turn LED 0 on.
+    TRISA = 0x00;
+    //LATA = 1; // Turn LED 0 on.
     ////////////////////////////////////////////////////////////
    
-    SYSTEMConfigPerformance(80000000); // PBCLK=80MHz. If it is removed, PBCLK=40MHz
+    const int CPUSpeed = 80000000;
+    const int blinkSpeed = 500;
+    SYSTEMConfigPerformance(CPUSpeed); // PBCLK=80MHz. If it is removed, PBCLK=40MHz
     DDPCONbits.JTAGEN = 0; // Disable the JTAG interface to use Pin RA0 as IO  
 
     ANSELA = 0; // PORTA all digital
@@ -257,17 +309,27 @@ void main(void) {
     T3CON = 0; // Turn OFF Timer3 and more.
     // Clear Timer3 Counter
     TMR3 = 0;
-    // Initialize PeriodRegister 3
-    PR3 = 0xFFFF;
 
     // Set Timer3 Priority Level to 1 (unimportant)
     IPC3bits.T3IP = 1;
     IEC0bits.T3IE = 1; // Enable Timer3 Interrupt 
 
     INTEnableSystemSingleVectoredInt();
-    T3CONbits.TCKPS0 = 1;
-    T3CONbits.TCKPS1 = 1;
-    T3CONbits.TCKPS2 = 1;
+    /*
+     8 256
+     7 128
+     6 64
+     5 32
+     4 16
+     3 8
+     2 4
+     1 2
+     0 1
+     */
+    T3CONbits.TCKPS = 1;
+    // Initialize PeriodRegister 3
+    //PR3 = 0xFFFF;
+    PR3 = 40535;
     T3CONbits.ON = 1; // Turn ON Timer3; Set pre-scaler to the largest value. 
     //////////////////// End of Timer 3 setup ///////////////////////
 
@@ -276,25 +338,104 @@ void main(void) {
     DIG_AN2(1)
     DIG_AN1(1)
     DIG_AN0(1)
-
+    
     int j;
     while (1) // Infinite loop
     {
-        turnOnSeg(buffer[0]); // Send the content of first buffer location.
-        DIG_AN3(0) // turn on
-        for (j = 0; j < 4000; j++); // wait
-        DIG_AN3(1) // turn off
-        turnOnSeg(buffer[1]); // Send the content of first buffer location.
-        DIG_AN2(0) // turn on
-        for (j = 0; j < 4000; j++); // wait
-        DIG_AN2(1) // turn off
-        turnOnSeg(buffer[2]); // Send the content of first buffer location.
-        DIG_AN1(0) // turn on
-        for (j = 0; j < 4000; j++); // wait
-        DIG_AN1(1) // turn off
-        turnOnSeg(buffer[3]); // Send the content of first buffer location.
-        DIG_AN0(0) // turn on
-        for (j = 0; j < 4000; j++); // wait
-        DIG_AN0(1) // turn off
+        switch (currentState) {
+            case INPUT: {
+                turnOnSeg(buffer[0]); // Send the content of first buffer location.
+                DIG_AN3(0) // turn on
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN3(1) // turn off
+                turnOnSeg(buffer[1]); // Send the content of first buffer location.
+                DIG_AN2(0) // turn on
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN2(1) // turn off
+                turnOnSeg(buffer[2]); // Send the content of first buffer location.
+                DIG_AN1(0) // turn on
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN1(1) // turn off
+                turnOnSeg(buffer[3]); // Send the content of first buffer location.
+                DIG_AN0(0) // turn on
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN0(1) // turn off
+                break;
+            }
+            case COUNTDOWN: {
+                int seconds = timerTicksRemaining / 1000;
+                int minutes = seconds / 60;
+                seconds -= minutes * 60;
+                
+                if (timerTicksRemaining <= 0)
+                {
+                    currentState = FINISHED;
+                }
+                
+                int digit;
+
+                //0 to 1 float of the progress of the timer
+                float progress = (float)timerTicksRemaining / (float)timerStartTimeTicks;
+                int temp = 0b11111111;
+                temp = temp << (int)(progress * 8);
+                PORTA = temp;
+
+                //minutes display
+                digit = minutes % 10;
+                minutes /= 10;
+                turnOnSeg(digit);
+                SEG_DP(timerTicksRemaining % blinkSpeed > (blinkSpeed / 2)); //control the dot that lines up with the middle of the 7 segment display
+                DIG_AN2(0);
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN2(1);
+
+                digit = minutes % 10;
+                minutes /= 10;
+                turnOnSeg(digit);
+                DIG_AN3(0);
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN3(1);
+                ///////////////
+
+                //seconds display
+                digit = seconds % 10;
+                seconds /= 10;
+                turnOnSeg(digit);
+                DIG_AN0(0);
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN0(1);
+
+                digit = seconds % 10;
+                seconds /= 10;
+                turnOnSeg(digit);
+                DIG_AN1(0);
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN1(1);
+                //////////////
+                break;
+            }
+            case FINISHED: {
+                turnOnSeg(0); // Send the content of first buffer location.
+                DIG_AN3(timerTicksRemaining % blinkSpeed > -(blinkSpeed / 2)) // turn on
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN3(1) // turn off
+                turnOnSeg(0); // Send the content of first buffer location.
+                DIG_AN2(timerTicksRemaining % blinkSpeed > -(blinkSpeed / 2)) // turn on
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN2(1) // turn off
+                turnOnSeg(0); // Send the content of first buffer location.
+                DIG_AN1(timerTicksRemaining % blinkSpeed > -(blinkSpeed / 2)) // turn on
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN1(1) // turn off
+                turnOnSeg(0); // Send the content of first buffer location.
+                DIG_AN0(timerTicksRemaining % blinkSpeed > -(blinkSpeed / 2)) // turn on
+                for (j = 0; j < 4000; j++); // wait
+                DIG_AN0(1) // turn off
+                break;
+            }
+        }
+        /*
+
+        */
     } // while
 }// main
