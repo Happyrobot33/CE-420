@@ -1,10 +1,10 @@
 
     #include <plib.h>
 
-    #define AN0cfg()   (TRISBbits.TRISB12 = 0, ANSELBbits.ANSB12 = 0)   // RB12
-    #define AN1cfg()   (TRISBbits.TRISB13 = 0, ANSELBbits.ANSB13 = 0)   // RB13
-    #define AN2cfg()   TRISAbits.TRISA9 = 0    // RA9
-    #define AN3cfg()   TRISAbits.TRISA10 = 0   // RA10
+    #define AN0cfg()   {TRISBbits.TRISB12 = 0; ANSELBbits.ANSB12 = 0;}   // RB12
+    #define AN1cfg()   {TRISBbits.TRISB13 = 0; ANSELBbits.ANSB13 = 0;}   // RB13
+    #define AN2cfg()   {TRISAbits.TRISA9 = 0;}    // RA9
+    #define AN3cfg()   {TRISAbits.TRISA10 = 0;}   // RA10
 
     #define SEG_CA(b)  {if(b) LATGCLR = 0x1000; else LATGSET = 0x1000;}  //RG12
     #define SEG_CB(b)  {if(b) LATACLR = 0x4000; else LATASET = 0x4000;}  //RA14

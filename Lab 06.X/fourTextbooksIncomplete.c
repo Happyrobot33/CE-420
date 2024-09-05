@@ -67,9 +67,9 @@ void turnOnSeg(int n) {
 } // turnOnSeg
 
 typedef enum {
-            INPUT,
-            COUNTDOWN,
-                    FINISHED
+    INPUT,
+    COUNTDOWN,
+    FINISHED
 } State;
 
 State currentState = INPUT;
@@ -82,34 +82,51 @@ int buffer[] = {
 }; // end of buffer
 
 //get the length of the buffer with some sizeof magic
-int bufferLength()
-{
-    return sizeof(buffer) / sizeof(buffer[0]);
+
+int bufferLength() {
+    return sizeof (buffer) / sizeof (buffer[0]);
 }
 
 int buttonIsActive = 0;
 
 //shifts a value into the buffer array, dropping the left most element in the array
-void shiftIn(int value)
-{
+
+void shiftIn(int value) {
     //detect control values that arent 0-9
     switch (value) {
-        case 0xA: {
+        case 0xA:
+        {
             //we need to convert the buffer over to a single integer value
-            int totalValue = buffer[3];
-            totalValue += buffer[2] * 10;
-            totalValue += buffer[1] * 100;
-            totalValue += buffer[0] * 1000;
+            //interpret left 2 digits and minutes, right two as seconds
+            int seconds = buffer[3];
+            seconds += buffer[2] * 10;
+
+            //if seconds is greater than 60, then reset
+            if (seconds >= 60) {
+                currentState = INPUT;
+                buffer[3] = 0;
+                buffer[2] = 0;
+                buffer[1] = 0;
+                buffer[0] = 0;
+                return;
+            }
+
+            int minutes = buffer[1];
+            minutes += buffer[0] * 10;
             currentState = COUNTDOWN;
-            timerTicksRemaining = totalValue * 1000;
+
+            seconds += minutes * 60;
+            timerTicksRemaining = seconds * 1000;
             timerStartTimeTicks = timerTicksRemaining;
             return;
         }
-        case 0xB: {
+        case 0xB:
+        {
             currentState = INPUT;
             return;
         }
-        case 0xC:{
+        case 0xC:
+        {
             currentState = INPUT;
             buffer[3] = 0;
             buffer[2] = 0;
@@ -122,21 +139,21 @@ void shiftIn(int value)
         case 0xF:
             return;
     }
-    
+
     int i;
     //shift all values over by one
-    for(i = 0; i < bufferLength() - 1; i++) //- 1 is to avoid the last element
+    for (i = 0; i < bufferLength() - 1; i++) //- 1 is to avoid the last element
     {
         buffer[i] = buffer[i + 1];
     }
-    
+
     //put in the new value
     buffer[bufferLength() - 1] = value;
 }
 
 // Selects a col in the numpad
-void selectCollumn(int col)
-{
+
+void selectCollumn(int col) {
     PORTCbits.RC2 = col != 4; // 4
     PORTCbits.RC1 = col != 3; // 3
     PORTCbits.RC4 = col != 2; // 2
@@ -144,29 +161,25 @@ void selectCollumn(int col)
 }
 
 //will shift in the appropriate row value if that button is pressed and we havent registered any other button presses
-void rowLogic(int row1, int row2, int row3, int row4)
-{
-    if (buttonIsActive == 1)
-    {
+
+void rowLogic(int row1, int row2, int row3, int row4) {
+    if (buttonIsActive == 1) {
         return;
     }
-    
+
     if (PORTGbits.RG9 == 0) //0 means the button is pushed
     {
         shiftIn(row1);
         buttonIsActive = 1;
-    }
-    else if (PORTGbits.RG8 == 0) //0 means the button is pushed
+    } else if (PORTGbits.RG8 == 0) //0 means the button is pushed
     {
         shiftIn(row2);
         buttonIsActive = 1;
-    }
-    else if (PORTGbits.RG7 == 0) //0 means the button is pushed
+    } else if (PORTGbits.RG7 == 0) //0 means the button is pushed
     {
         shiftIn(row3);
         buttonIsActive = 1;
-    }
-    else if (PORTCbits.RC3 == 0) //0 means the button is pushed
+    } else if (PORTCbits.RC3 == 0) //0 means the button is pushed
     {
         shiftIn(row4);
         buttonIsActive = 1;
@@ -174,54 +187,48 @@ void rowLogic(int row1, int row2, int row3, int row4)
 }
 
 //checks if all of the buttons on the number pad are released, and if so resets buttonIsActive
-void checkAllButtonsReleased()
-{
-    char activeCols[] = {0,0,0,0};
+
+void checkAllButtonsReleased() {
+    char activeCols[] = {0, 0, 0, 0};
     //setup collumn 4
     selectCollumn(4);
-    
-    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
-    {
+
+    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0) {
         activeCols[3] = 1;
     }
-    
+
     //setup collumn 3
     selectCollumn(3);
-    
-    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
-    {
+
+    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0) {
         activeCols[2] = 1;
     }
-    
+
     //setup collumn 2
     selectCollumn(2);
-    
-    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
-    {
+
+    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0) {
         activeCols[1] = 1;
     }
-    
+
     //setup collumn 1
     selectCollumn(1);
-    
-    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0)
-    {
+
+    if (PORTGbits.RG9 == 0 || PORTGbits.RG8 == 0 || PORTGbits.RG7 == 0 || PORTCbits.RC3 == 0) {
         activeCols[0] = 1;
     }
-    
-    if (activeCols[0] == 0 && activeCols[1] == 0 && activeCols[2] == 0 && activeCols[3] == 0)
-    {
+
+    if (activeCols[0] == 0 && activeCols[1] == 0 && activeCols[2] == 0 && activeCols[3] == 0) {
         buttonIsActive = 0;
     }
 }
 
 /////////////////////////////// ISR ///////////////////////////  
+
 void __ISR_SINGLE() T3ISR(void) {
-    if(currentState == COUNTDOWN || currentState == FINISHED)
-    {
+    if (currentState == COUNTDOWN || currentState == FINISHED) {
         timerTicksRemaining -= 1;
-        if (timerTicksRemaining < -1000)
-        {
+        if (timerTicksRemaining < -1000) {
             timerTicksRemaining = 0;
         }
     }
@@ -230,35 +237,35 @@ void __ISR_SINGLE() T3ISR(void) {
     //////////////////////////////////////////////////// 
 
     IFS0bits.T3IF = 0; // Reset Interrupt Flag Status bit.
-    
+
     //setup 4 collumn
     selectCollumn(4);
     rowLogic(0xA,
-             0xB,
-             0xC,
-             0xD);
-    
+            0xB,
+            0xC,
+            0xD);
+
     //setup 3 collumn
     selectCollumn(3);
     rowLogic(0x3,
-             0x6,
-             0x9,
-             0xE);
-    
+            0x6,
+            0x9,
+            0xE);
+
     //setup 2 collumn
     selectCollumn(2);
     rowLogic(0x2,
-             0x5,
-             0x8,
-             0xF);
-    
+            0x5,
+            0x8,
+            0xF);
+
     //setup 1 collumn
     selectCollumn(1);
     rowLogic(0x1,
-             0x4,
-             0x7,
-             0x0);
-    
+            0x4,
+            0x7,
+            0x0);
+
     //check if all buttons are released
     checkAllButtonsReleased();
 } // ISR ends here.
@@ -269,7 +276,7 @@ void main(void) {
     TRISA = 0x00;
     //LATA = 1; // Turn LED 0 on.
     ////////////////////////////////////////////////////////////
-   
+
     const int CPUSpeed = 80000000;
     const int blinkSpeed = 500;
     SYSTEMConfigPerformance(CPUSpeed); // PBCLK=80MHz. If it is removed, PBCLK=40MHz
@@ -280,7 +287,7 @@ void main(void) {
     ANSELF = 0; // PORTF all digital 
     ANSELG = 0;
     //ANSELC = 0;
-    
+
     //collumn outputs
     TRISCbits.TRISC2 = 0;
     TRISCbits.TRISC1 = 0;
@@ -333,17 +340,33 @@ void main(void) {
     T3CONbits.ON = 1; // Turn ON Timer3; Set pre-scaler to the largest value. 
     //////////////////// End of Timer 3 setup ///////////////////////
 
+    AN0cfg()
+    AN1cfg()
+    AN2cfg()
+    AN3cfg()
+
     // All displays off
-    DIG_AN3(1)
-    DIG_AN2(1)
-    DIG_AN1(1)
-    DIG_AN0(1)
-    
+    DIGITS_OFF
+
+    PORTA = 0;
+
+
     int j;
     while (1) // Infinite loop
     {
         switch (currentState) {
-            case INPUT: {
+            case INPUT:
+            {
+                //reset LEDs. we do it like this to avoid affecting the anodes of the LEDs
+                LATAbits.LATA0 = 1;
+                LATAbits.LATA1 = 1;
+                LATAbits.LATA2 = 1;
+                LATAbits.LATA3 = 1;
+                LATAbits.LATA4 = 1;
+                LATAbits.LATA5 = 1;
+                LATAbits.LATA6 = 1;
+                LATAbits.LATA7 = 1;
+
                 turnOnSeg(buffer[0]); // Send the content of first buffer location.
                 DIG_AN3(0) // turn on
                 for (j = 0; j < 4000; j++); // wait
@@ -362,23 +385,30 @@ void main(void) {
                 DIG_AN0(1) // turn off
                 break;
             }
-            case COUNTDOWN: {
-                int seconds = timerTicksRemaining / 1000;
+            case COUNTDOWN:
+            {
+                int seconds = (timerTicksRemaining + 1000) / 1000;
                 int minutes = seconds / 60;
                 seconds -= minutes * 60;
-                
-                if (timerTicksRemaining <= 0)
-                {
+
+                if (timerTicksRemaining <= 0) {
                     currentState = FINISHED;
                 }
-                
+
                 int digit;
 
                 //0 to 1 float of the progress of the timer
-                float progress = (float)timerTicksRemaining / (float)timerStartTimeTicks;
-                int temp = 0b11111111;
-                temp = temp << (int)(progress * 8);
-                PORTA = temp;
+                float progress = (float) timerTicksRemaining / (float) timerStartTimeTicks;
+                //int temp = 0b11111111;
+                //temp = temp << (int) (progress * 8);
+                LATAbits.LATA0 = progress > 1 / 8.0;
+                LATAbits.LATA1 = progress > 2 / 8.0;
+                LATAbits.LATA2 = progress > 3 / 8.0;
+                LATAbits.LATA3 = progress > 4 / 8.0;
+                LATAbits.LATA4 = progress > 5 / 8.0;
+                LATAbits.LATA5 = progress > 6 / 8.0;
+                LATAbits.LATA6 = progress > 7 / 8.0;
+                LATAbits.LATA7 = progress > 8 / 8.0;
 
                 //minutes display
                 digit = minutes % 10;
@@ -414,7 +444,8 @@ void main(void) {
                 //////////////
                 break;
             }
-            case FINISHED: {
+            case FINISHED:
+            {
                 turnOnSeg(0); // Send the content of first buffer location.
                 DIG_AN3(timerTicksRemaining % blinkSpeed > -(blinkSpeed / 2)) // turn on
                 for (j = 0; j < 4000; j++); // wait
@@ -434,8 +465,5 @@ void main(void) {
                 break;
             }
         }
-        /*
-
-        */
     } // while
 }// main
