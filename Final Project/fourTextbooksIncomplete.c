@@ -68,88 +68,95 @@ void turnOnSeg(int n) {
 } // turnOnSeg
 
 typedef enum {
-    INPUT,
-    COUNTDOWN,
-    FINISHED
-} State;
+    SEED,
+    PLAYER1,
+    PLAYER2,
+    GAMEFINISHED
+} GameState;
 
-State currentState = INPUT;
+GameState currentGameState = PLAYER1;
 
-long timerStartTimeTicks;
-long timerTicksRemaining = 1 * 5 * 1000; //6 minutes to seconds to ms
-
-int buffer[] = {
-    0, 0, 0, 0
+//6x6
+int PlayerShips[] = {
+    1, 0, 0, 0, 0, 1,
+    0, 1, 0, 0, 0, 1,
+    0, 0, 1, 0, 0, 0,
+    0, 0, 0, 1, 0, 0,
+    1, 0, 0, 0, 1, 0,
+    1, 0, 0, 1, 0, 1,
 }; // end of buffer
+int PlayerGuesses[] = {
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+}; // end of buffer
+int PlayerShipsLeft = 10;
+
+int AIShips[] = {
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+}; // end of buffer
+int AIGuesses[] = {
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+}; // end of buffer
+int AIShipsLeft = 10;
+//row, collumn
+int PlayerSelection[] = {0, 0};
+
+int seed = 0;
 
 //get the length of the buffer with some sizeof magic
 
-int bufferLength() {
+int bufferLength(int buffer[]) {
     return sizeof (buffer) / sizeof (buffer[0]);
 }
+
+char Status[] = "Miss!";
 
 int buttonIsActive = 0;
 
 //shifts a value into the buffer array, dropping the left most element in the array
 
-void shiftIn(int value) {
+void numpadInput(int value) {
     //detect control values that arent 0-9
     switch (value) {
         case 0xA:
-        {
-            //we need to convert the buffer over to a single integer value
-            //interpret left 2 digits and minutes, right two as seconds
-            int seconds = buffer[3];
-            seconds += buffer[2] * 10;
-
-            //if seconds is greater than 60, then reset
-            if (seconds >= 60) {
-                currentState = INPUT;
-                buffer[3] = 0;
-                buffer[2] = 0;
-                buffer[1] = 0;
-                buffer[0] = 0;
-                return;
-            }
-
-            int minutes = buffer[1];
-            minutes += buffer[0] * 10;
-            currentState = COUNTDOWN;
-
-            seconds += minutes * 60;
-            timerTicksRemaining = seconds * 1000;
-            timerStartTimeTicks = timerTicksRemaining;
-            return;
-        }
         case 0xB:
-        {
-            currentState = INPUT;
-            return;
-        }
         case 0xC:
-        {
-            currentState = INPUT;
-            buffer[3] = 0;
-            buffer[2] = 0;
-            buffer[1] = 0;
-            buffer[0] = 0;
-            return;
-        }
         case 0xD:
         case 0xE:
         case 0xF:
-            return;
+            PlayerSelection[0] = value;
+            break;
+        case 0:
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+            PlayerSelection[1] = value;
+            break;
+        case 9:
+            seed = PlayerSelection[0] + PlayerSelection[1];
+            //HANDLE GUESS
+            break;
     }
 
-    int i;
-    //shift all values over by one
-    for (i = 0; i < bufferLength() - 1; i++) //- 1 is to avoid the last element
-    {
-        buffer[i] = buffer[i + 1];
-    }
+    //update the player selection
 
-    //put in the new value
-    buffer[bufferLength() - 1] = value;
+    //compute the index to use
 }
 
 // Selects a col in the numpad
@@ -170,19 +177,19 @@ void rowLogic(int row1, int row2, int row3, int row4) {
 
     if (PORTGbits.RG9 == 0) //0 means the button is pushed
     {
-        shiftIn(row1);
+        numpadInput(row1);
         buttonIsActive = 1;
     } else if (PORTGbits.RG8 == 0) //0 means the button is pushed
     {
-        shiftIn(row2);
+        numpadInput(row2);
         buttonIsActive = 1;
     } else if (PORTGbits.RG7 == 0) //0 means the button is pushed
     {
-        shiftIn(row3);
+        numpadInput(row3);
         buttonIsActive = 1;
     } else if (PORTCbits.RC3 == 0) //0 means the button is pushed
     {
-        shiftIn(row4);
+        numpadInput(row4);
         buttonIsActive = 1;
     }
 }
@@ -224,15 +231,124 @@ void checkAllButtonsReleased() {
     }
 }
 
+void setWritePosition(x, y) {
+    unsigned char bAddrOffset = (y == 0 ? 0 : 0x40) + x;
+    LCD_SetWriteDdramPosition(bAddrOffset);
+}
+
+void drawBoards() {
+    int x;
+    int y;
+
+    unsigned char player1leftchar[] = {
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+    };
+
+    unsigned char player1rightchar[] = {
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+    };
+
+    int index;
+
+    for (x = 0; x < 5; x++) {
+        for (y = 0; y < 6; y++) {
+            index = (y * 6) + x;
+            player1leftchar[y] = player1leftchar[y] << 1;
+            player1leftchar[y] = player1leftchar[y] | PlayerShips[index];
+        }
+    }
+    for (x = 0; x < 1; x++) {
+        for (y = 0; y < 6; y++) {
+            index = (y * 6) + x + 5;
+            player1rightchar[y] = player1rightchar[y] << 1;
+            player1rightchar[y] = player1rightchar[y] | PlayerShips[index];
+
+            //shift to align left
+            player1rightchar[y] = player1rightchar[y] << 4;
+        }
+    }
+
+    unsigned char player2leftchar[] = {
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+    };
+
+    unsigned char player2rightchar[] = {
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+    };
+
+    for (x = 0; x < 5; x++) {
+        for (y = 0; y < 6; y++) {
+            index = (y * 6) + x;
+            player2leftchar[y] = player2leftchar[y] << 1;
+            player2leftchar[y] = player2leftchar[y] | PlayerGuesses[index];
+        }
+    }
+    for (x = 0; x < 1; x++) {
+        for (y = 0; y < 6; y++) {
+            index = (y * 6) + x + 5;
+            player2rightchar[y] = player2rightchar[y] << 1;
+            player2rightchar[y] = player2rightchar[y] | PlayerGuesses[index];
+
+            //shift to align left
+            player2rightchar[y] = player2rightchar[y] << 4;
+        }
+    }
+
+    //load all of the characters into cgram
+    LCD_WriteBytesAtPosCgram(player1leftchar, 8, posCgramChar0);
+    LCD_WriteBytesAtPosCgram(player1rightchar, 8, posCgramChar1);
+    LCD_WriteBytesAtPosCgram(player2leftchar, 8, posCgramChar2);
+    LCD_WriteBytesAtPosCgram(player2rightchar, 8, posCgramChar3);
+
+    setWritePosition(0, 0);
+    LCD_WriteDataByte(0b00000000);
+
+    setWritePosition(1, 0);
+    LCD_WriteDataByte(0b00000001);
+
+    setWritePosition(14, 0);
+    LCD_WriteDataByte(0b00000010);
+
+    setWritePosition(15, 0);
+    LCD_WriteDataByte(0b00000011);
+
+    LCD_WriteStringAtPos("You", 1, 0);
+    LCD_WriteStringAtPos("AI", 1, 14);
+
+    LCD_WriteStringAtPos(Status, 1, 6);
+}
+
 /////////////////////////////// ISR ///////////////////////////  
 
 void __ISR_SINGLE() T3ISR(void) {
-    if (currentState == COUNTDOWN || currentState == FINISHED) {
-        timerTicksRemaining -= 1;
-        if (timerTicksRemaining < -1000) {
-            timerTicksRemaining = 0;
-        }
-    }
     ///////// Monitor the ISR by toggling LED0 ///////// 
     //LATAINV = 1; // Flip LED0
     //////////////////////////////////////////////////// 
@@ -270,6 +386,10 @@ void __ISR_SINGLE() T3ISR(void) {
     //check if all buttons are released
     checkAllButtonsReleased();
 } // ISR ends here.
+
+int random(int min, int max) {
+    return min + rand() / (RAND_MAX / (max - min + 1) + 1);
+}
 
 void main(void) {
     LCD_Init();
@@ -351,145 +471,49 @@ void main(void) {
     DIGITS_OFF
 
     PORTA = 0;
-    
-    
+
+
     //LCD_DisplayClear();
-    LCD_WriteStringAtPos("testing", 3, 0);
-    
-    
-    unsigned char testingbuff[] = {
-        0b11111,
-        255,
-        255,
-        255,
-        255,
-        255,
-        255,
-        255,
-    };
-    while(1)
-    {
-        testingbuff[0] = testingbuff[0] + 1;
-        LCD_WriteBytesAtPosCgram(testingbuff, 8, posCgramChar0);
-        unsigned char bAddrOffset = (0 == 0 ? 0: 0x40) + 0;
-        LCD_SetWriteDdramPosition(bAddrOffset);
-        LCD_WriteDataByte(posCgramChar0);
-    }
+    //LCD_WriteStringAtPos("testing", 3, 0);
+
     //LCD_WriteStringAtPos(mess, 0, 0);
+
+    strcpy(Status, "Seed?");
 
     int j;
     while (1) // Infinite loop
     {
-        switch (currentState) {
-            case INPUT:
-            {
-                //reset LEDs. we do it like this to avoid affecting the anodes of the LEDs
-                LATAbits.LATA0 = 1;
-                LATAbits.LATA1 = 1;
-                LATAbits.LATA2 = 1;
-                LATAbits.LATA3 = 1;
-                LATAbits.LATA4 = 1;
-                LATAbits.LATA5 = 1;
-                LATAbits.LATA6 = 1;
-                LATAbits.LATA7 = 1;
+        drawBoards();
 
-                turnOnSeg(buffer[0]); // Send the content of first buffer location.
-                DIG_AN3(0) // turn on
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN3(1) // turn off
-                turnOnSeg(buffer[1]); // Send the content of first buffer location.
-                DIG_AN2(0) // turn on
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN2(1) // turn off
-                turnOnSeg(buffer[2]); // Send the content of first buffer location.
-                DIG_AN1(0) // turn on
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN1(1) // turn off
-                turnOnSeg(buffer[3]); // Send the content of first buffer location.
-                DIG_AN0(0) // turn on
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN0(1) // turn off
-                break;
-            }
-            case COUNTDOWN:
-            {
-                int seconds = (timerTicksRemaining + 1000) / 1000;
-                int minutes = seconds / 60;
-                seconds -= minutes * 60;
+        turnOnSeg(PlayerSelection[0]); // Send the content of first buffer location.
+        DIG_AN3(0) // turn on
+        for (j = 0; j < 4000; j++); // wait
+        DIG_AN3(1) // turn off
 
-                if (timerTicksRemaining <= 0) {
-                    currentState = FINISHED;
+        turnOnSeg(PlayerSelection[1]); // Send the content of first buffer location.
+        DIG_AN2(0) // turn on
+        for (j = 0; j < 4000; j++); // wait
+        DIG_AN2(1) // turn off
+
+        if (seed != 0) {
+            drawBoards();
+            srand(seed);
+
+            //generate the AI board
+            while (AIShipsLeft > 0) {
+                //generate row col
+                int randindex = random(0, 35);
+
+                //check if we can place there
+                if (AIShips[randindex] == 0) {
+                    AIShips[randindex] = 1;
+                    AIShipsLeft--;
                 }
-
-                int digit;
-
-                //0 to 1 float of the progress of the timer
-                float progress = (float) timerTicksRemaining / (float) timerStartTimeTicks;
-                //int temp = 0b11111111;
-                //temp = temp << (int) (progress * 8);
-                LATAbits.LATA0 = progress > 1 / 8.0;
-                LATAbits.LATA1 = progress > 2 / 8.0;
-                LATAbits.LATA2 = progress > 3 / 8.0;
-                LATAbits.LATA3 = progress > 4 / 8.0;
-                LATAbits.LATA4 = progress > 5 / 8.0;
-                LATAbits.LATA5 = progress > 6 / 8.0;
-                LATAbits.LATA6 = progress > 7 / 8.0;
-                LATAbits.LATA7 = progress > 8 / 8.0;
-
-                //minutes display
-                digit = minutes % 10;
-                minutes /= 10;
-                turnOnSeg(digit);
-                SEG_DP(timerTicksRemaining % blinkSpeed > (blinkSpeed / 2)); //control the dot that lines up with the middle of the 7 segment display
-                DIG_AN2(0);
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN2(1);
-
-                digit = minutes % 10;
-                minutes /= 10;
-                turnOnSeg(digit);
-                DIG_AN3(0);
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN3(1);
-                ///////////////
-
-                //seconds display
-                digit = seconds % 10;
-                seconds /= 10;
-                turnOnSeg(digit);
-                DIG_AN0(0);
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN0(1);
-
-                digit = seconds % 10;
-                seconds /= 10;
-                turnOnSeg(digit);
-                DIG_AN1(0);
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN1(1);
-                //////////////
-                break;
             }
-            case FINISHED:
-            {
-                turnOnSeg(0); // Send the content of first buffer location.
-                DIG_AN3(timerTicksRemaining % blinkSpeed > -(blinkSpeed / 2)) // turn on
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN3(1) // turn off
-                turnOnSeg(0); // Send the content of first buffer location.
-                DIG_AN2(timerTicksRemaining % blinkSpeed > -(blinkSpeed / 2)) // turn on
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN2(1) // turn off
-                turnOnSeg(0); // Send the content of first buffer location.
-                DIG_AN1(timerTicksRemaining % blinkSpeed > -(blinkSpeed / 2)) // turn on
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN1(1) // turn off
-                turnOnSeg(0); // Send the content of first buffer location.
-                DIG_AN0(timerTicksRemaining % blinkSpeed > -(blinkSpeed / 2)) // turn on
-                for (j = 0; j < 4000; j++); // wait
-                DIG_AN0(1) // turn off
-                break;
-            }
+            
+            //reset to break out of this condition
+            seed = 0;
+            strcpy(Status, "Setup");
         }
     } // while
 }// main
