@@ -19,7 +19,7 @@ endif
 endif
 
 # Environment
-MKDIR=mkdir -p
+MKDIR=gnumkdir -p
 RM=rm -f 
 MV=mv 
 CP=cp 
@@ -101,38 +101,38 @@ endif
 # ------------------------------------------------------------------------------------
 # Rules for buildStep: compile
 ifeq ($(TYPE_IMAGE), DEBUG_RUN)
-${OBJECTDIR}/fourTextbooksIncomplete.o: fourTextbooksIncomplete.c  .generated_files/flags/default/d80511015ce3efd580d9ef4938add183c828fa6d .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
+${OBJECTDIR}/fourTextbooksIncomplete.o: fourTextbooksIncomplete.c  .generated_files/flags/default/a43b27b7dd156ba5cd89d9591b9621ab0224df09 .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/fourTextbooksIncomplete.o.d 
 	@${RM} ${OBJECTDIR}/fourTextbooksIncomplete.o 
 	${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/fourTextbooksIncomplete.o.d" -o ${OBJECTDIR}/fourTextbooksIncomplete.o fourTextbooksIncomplete.c    -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)    
 	
-${OBJECTDIR}/lcd.o: lcd.c  .generated_files/flags/default/4700facbf62a14b780b4c74b738113d6885d663b .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
+${OBJECTDIR}/lcd.o: lcd.c  .generated_files/flags/default/1057dafeeaa2f76f18584dfc7b7caae1a26bc25e .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/lcd.o.d 
 	@${RM} ${OBJECTDIR}/lcd.o 
 	${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/lcd.o.d" -o ${OBJECTDIR}/lcd.o lcd.c    -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)    
 	
-${OBJECTDIR}/utils.o: utils.c  .generated_files/flags/default/a511412e374e891c158db7676e5001613f382d91 .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
+${OBJECTDIR}/utils.o: utils.c  .generated_files/flags/default/78e82295fa46ae04f859d5e28c50307e0b597341 .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/utils.o.d 
 	@${RM} ${OBJECTDIR}/utils.o 
 	${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/utils.o.d" -o ${OBJECTDIR}/utils.o utils.c    -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)    
 	
 else
-${OBJECTDIR}/fourTextbooksIncomplete.o: fourTextbooksIncomplete.c  .generated_files/flags/default/d62d766d1b5fc6616631bb465fdc56b046605152 .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
+${OBJECTDIR}/fourTextbooksIncomplete.o: fourTextbooksIncomplete.c  .generated_files/flags/default/67fa6072cc1c55963bc792e930737c8852ba242a .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/fourTextbooksIncomplete.o.d 
 	@${RM} ${OBJECTDIR}/fourTextbooksIncomplete.o 
 	${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/fourTextbooksIncomplete.o.d" -o ${OBJECTDIR}/fourTextbooksIncomplete.o fourTextbooksIncomplete.c    -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)    
 	
-${OBJECTDIR}/lcd.o: lcd.c  .generated_files/flags/default/a4a86cbff44d88501fda87092a0beb0ba002550e .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
+${OBJECTDIR}/lcd.o: lcd.c  .generated_files/flags/default/2c7d95326d3bde66715114db97671d47f7df854 .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/lcd.o.d 
 	@${RM} ${OBJECTDIR}/lcd.o 
 	${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/lcd.o.d" -o ${OBJECTDIR}/lcd.o lcd.c    -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)    
 	
-${OBJECTDIR}/utils.o: utils.c  .generated_files/flags/default/eb45d481ef9ad0da945f70499cb733b0d5c9349a .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
+${OBJECTDIR}/utils.o: utils.c  .generated_files/flags/default/f6d1c62c3a88d37b079edafec23fdfea552b0cf4 .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/utils.o.d 
 	@${RM} ${OBJECTDIR}/utils.o 
@@ -157,7 +157,7 @@ else
 ${DISTDIR}/Final_Project.${IMAGE_TYPE}.${OUTPUT_SUFFIX}: ${OBJECTFILES}  nbproject/Makefile-${CND_CONF}.mk   
 	@${MKDIR} ${DISTDIR} 
 	${MP_CC} $(MP_EXTRA_LD_PRE)  -mprocessor=$(MP_PROCESSOR_OPTION)  -o ${DISTDIR}/Final_Project.${IMAGE_TYPE}.${DEBUGGABLE_SUFFIX} ${OBJECTFILES_QUOTED_IF_SPACED}          -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)  -Wl,--defsym=__MPLAB_BUILD=1$(MP_EXTRA_LD_POST)$(MP_LINKER_FILE_OPTION),-Map="${DISTDIR}/${PROJECTNAME}.${IMAGE_TYPE}.map" 
-	${MP_CC_DIR}/xc32-bin2hex ${DISTDIR}/Final_Project.${IMAGE_TYPE}.${DEBUGGABLE_SUFFIX} 
+	${MP_CC_DIR}\\xc32-bin2hex ${DISTDIR}/Final_Project.${IMAGE_TYPE}.${DEBUGGABLE_SUFFIX} 
 endif
 
 

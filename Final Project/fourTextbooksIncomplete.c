@@ -2,12 +2,37 @@
 #include "7SegForLab04.h"          // Bit banging is done here
 #include <plib.h>           // Peripherial library 
 #include "lcd.h"
+#include <limits.h>
 
 // configuration bit settings, Fcy=80MHz, Fpb=40MHz
 #pragma config POSCMOD=XT, FNOSC=PRIPLL
 #pragma config FPLLIDIV=DIV_2, FPLLMUL=MUL_20
 #pragma config FPLLODIV=DIV_1, FPBDIV=DIV_2
 #pragma config FWDTEN=OFF, CP=OFF, BWP=OFF
+
+#define INT_STR_SIZE (sizeof(int)*CHAR_BIT/3 + 3)
+#define SHIPCOUNT 9
+
+char *my_itoa(char *dest, size_t size, int x) {
+  char buf[INT_STR_SIZE];
+  char *p = &buf[INT_STR_SIZE - 1];
+  *p = '\0';
+  int i = x;
+
+  do {
+    *(--p) = abs(i%10) + '0';
+    i /= 10;
+  } while (i);
+
+  if (x < 0) {
+    *(--p) = '-';
+  }
+  size_t len = (size_t) (&buf[INT_STR_SIZE] - p);
+  if (len > size) {
+    return NULL;  // Not enough room
+  }
+  return memcpy(dest, p, len);
+}
 
 // function "turnOnSeg" normally receives a 4-bit value (n), converts it to 7-segment, 
 // code word and sends it to 7-segment bus 
@@ -69,21 +94,22 @@ void turnOnSeg(int n) {
 
 typedef enum {
     SEED,
+    SETUP,
     PLAYER1,
     PLAYER2,
     GAMEFINISHED
 } GameState;
 
-GameState currentGameState = PLAYER1;
+GameState currentGameState = SEED;
 
 //6x6
 int PlayerShips[] = {
-    1, 0, 0, 0, 0, 1,
-    0, 1, 0, 0, 0, 1,
-    0, 0, 1, 0, 0, 0,
-    0, 0, 0, 1, 0, 0,
-    1, 0, 0, 0, 1, 0,
-    1, 0, 0, 1, 0, 1,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
 }; // end of buffer
 int PlayerGuesses[] = {
     0, 0, 0, 0, 0, 0,
@@ -93,7 +119,7 @@ int PlayerGuesses[] = {
     0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0,
 }; // end of buffer
-int PlayerShipsLeft = 10;
+int PlayerShipsLeft = SHIPCOUNT;
 
 int AIShips[] = {
     0, 0, 0, 0, 0, 0,
@@ -111,7 +137,7 @@ int AIGuesses[] = {
     0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0,
 }; // end of buffer
-int AIShipsLeft = 10;
+int AIShipsLeft = SHIPCOUNT;
 //row, collumn
 int PlayerSelection[] = {0, 0};
 
@@ -123,6 +149,10 @@ int bufferLength(int buffer[]) {
     return sizeof (buffer) / sizeof (buffer[0]);
 }
 
+int GetIndex(int x, int y) {
+    return (y * 6) +x;
+}
+
 char Status[] = "Miss!";
 
 int buttonIsActive = 0;
@@ -131,6 +161,8 @@ int buttonIsActive = 0;
 
 void numpadInput(int value) {
     //detect control values that arent 0-9
+    int index;
+    index = GetIndex(PlayerSelection[0] - 10, PlayerSelection[1]);
     switch (value) {
         case 0xA:
         case 0xB:
@@ -149,7 +181,49 @@ void numpadInput(int value) {
             PlayerSelection[1] = value;
             break;
         case 9:
-            seed = PlayerSelection[0] + PlayerSelection[1];
+            switch (currentGameState) {
+                case SEED:
+                    seed = PlayerSelection[0] + PlayerSelection[1];
+                    break;
+                case SETUP:
+                    //check if there is already a ship there
+                    if (PlayerShips[index] != 1) {
+                        PlayerShips[index] = 1;
+                        PlayerShipsLeft -= 1;
+                    }
+
+                    //if it reaches 0, then start the match
+                    if (PlayerShipsLeft == 0) {
+                        currentGameState = PLAYER1;
+                        strcpy(Status, "Plyr 1");
+                        //reset both ship counters
+                        PlayerShipsLeft = SHIPCOUNT;
+                        AIShipsLeft = SHIPCOUNT;
+                    }
+                    break;
+                case PLAYER1:
+                    //attempt to make a guess
+                    if (PlayerGuesses[index] != 1)
+                    {
+                        PlayerGuesses[index] = 1;
+                        //check if the guess was succesful
+                        if (AIShips[index] == 1)
+                        {
+                            AIShipsLeft--;
+                        }
+                        //move the game state forward
+                        currentGameState = PLAYER2;
+                        strcpy(Status, "Plyr 2");
+                        
+                        //check if the player won
+                        if (AIShipsLeft == 0)
+                        {
+                            currentGameState = GAMEFINISHED;
+                            strcpy(Status, "you win");
+                        }
+                    }
+                    break;
+            }
             //HANDLE GUESS
             break;
     }
@@ -235,6 +309,8 @@ void setWritePosition(x, y) {
     unsigned char bAddrOffset = (y == 0 ? 0 : 0x40) + x;
     LCD_SetWriteDdramPosition(bAddrOffset);
 }
+
+char str[20];
 
 void drawBoards() {
     int x;
@@ -344,6 +420,13 @@ void drawBoards() {
     LCD_WriteStringAtPos("AI", 1, 14);
 
     LCD_WriteStringAtPos(Status, 1, 6);
+
+    //FML this is giving me so much trouble, it doesnt want to display correctly with numbers that have multiple digits
+    my_itoa(str, sizeof str, PlayerShipsLeft);
+    LCD_WriteStringAtPos(str, 0, 2);
+    my_itoa(str, sizeof str, AIShipsLeft);
+    LCD_WriteStringAtPos(str, 0, 12);
+    //LCD_WriteStringAtPos(Status, 1, 6);
 }
 
 /////////////////////////////// ISR ///////////////////////////  
@@ -495,25 +578,62 @@ void main(void) {
         for (j = 0; j < 4000; j++); // wait
         DIG_AN2(1) // turn off
 
-        if (seed != 0) {
-            drawBoards();
-            srand(seed);
+        switch (currentGameState) {
+            case SEED:
+                if (seed != 0) {
+                    drawBoards();
+                    srand(seed);
 
-            //generate the AI board
-            while (AIShipsLeft > 0) {
-                //generate row col
-                int randindex = random(0, 35);
+                    //generate the AI board
+                    while (AIShipsLeft > 0) {
+                        //generate row col
+                        int randindex = random(0, 35);
 
-                //check if we can place there
-                if (AIShips[randindex] == 0) {
-                    AIShips[randindex] = 1;
-                    AIShipsLeft--;
+                        //check if we can place there
+                        if (AIShips[randindex] == 0) {
+                            AIShips[randindex] = 1;
+                            AIShipsLeft -= 1;
+                        }
+                    }
+
+                    //reset to break out of this condition
+                    seed = 0;
+                    strcpy(Status, "Setup");
+                    currentGameState = SETUP;
                 }
-            }
-            
-            //reset to break out of this condition
-            seed = 0;
-            strcpy(Status, "Setup");
+                break;
+            case SETUP:
+                break;
+            case PLAYER1:
+                break;
+            case PLAYER2:
+                //we want to make a guess that we havent made yet, and then pass the game state back to player 1
+                while (1) {
+                    //generate row col
+                    int randindex = random(0, 35);
+
+                    //check if we have guessed there
+                    if (AIGuesses[randindex] == 0) {
+                        AIGuesses[randindex] = 1;
+                        //we want to check if we hit something or not
+                        if (PlayerShips[randindex] == 1) {
+                            PlayerShips[randindex] = 0;
+                            PlayerShipsLeft -= 1;
+                        }
+                        break;
+                    }
+                }
+                //pass the turn
+                currentGameState = PLAYER1;
+                strcpy(Status, "Plyr 1");
+                
+                //check if the AI won
+                if (PlayerShipsLeft == 0)
+                {
+                    currentGameState = GAMEFINISHED;
+                    strcpy(Status, "AI win");
+                }
+                break;
         }
     } // while
 }// main
